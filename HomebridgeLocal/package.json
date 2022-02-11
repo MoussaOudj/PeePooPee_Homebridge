@@ -1,0 +1,16 @@
+{
+  "name": "HomebridgeLocal",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "./node_modules/.bin/homebridge"
+  },
+  "dependencies": {
+    "axios": "^0.25.0",
+    "body-parser": "^1.19.1",
+    "homebridge-esgi": "../homebridge-esgi",
+    "mqtt": "^4.3.5"
+  },
+  "devDependencies": {
+    "homebridge": "^1.3.9"
+  }
+}
