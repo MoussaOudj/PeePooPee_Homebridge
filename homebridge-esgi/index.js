@@ -1,8 +1,8 @@
-"use strict";
-
 var mqtt = require('mqtt');
 var Service, Characteristic, HomebridgeAPI;
-var sitTemp = 0;
+var seatTemp = "";
+var seatDetection = false;
+var seatCover = 1;
 
 var opts = {
     rejectUnauthorized: false,
@@ -15,15 +15,21 @@ var mqttclient = mqtt.connect('mqtt://test.mosquitto.org:1883',opts);
 
 mqttclient.on('connect', function() {
     console.log('CONNECTED MQTT');
-    mqttclient.subscribe('test/ios/temp');
+    mqttclient.subscribe('peepoopee/tempSensor/value');
+    mqttclient.subscribe('peepoopee/seatMotion/status');
     });
 
 mqttclient.on('message', function(topic, message){
-    if(topic == 'test/ios/temp'){
-        var jsonStatusPayload = JSON.parse(message);
-        sitTemp = jsonStatusPayload;
+    if(topic == 'peepoopee/tempSensor/value'){
+        var tempValue = JSON.parse(message);
+        // console.log("payload temp : ", tempValue)
+        seatTemp = tempValue;
         // console.log(jsonStatusPayload);
-        }
+        } else if(topic == 'peepoopee/seatMotion/status'){
+        var seatMotionValue = JSON.parse(message);
+        // console.log("payload seatMotion : ", seatMotionValue)
+        seatDetection = seatMotionValue;
+    }
     });
 
 module.exports = function(homebridge) {
@@ -31,8 +37,8 @@ module.exports = function(homebridge) {
     Characteristic = homebridge.hap.Characteristic;
     HomebridgeAPI = homebridge;
     homebridge.registerAccessory("homebridge-esgi", "DummyESGI", DummyESGI);
-    homebridge.registerAccessory("homebridge-esgi", "MentionSensor", MentionSensor);
-    homebridge.registerAccessory("homebridge-esgi", "MentionSensorTop", MentionSensorTop);
+    homebridge.registerAccessory("homebridge-esgi", "MentionSensor", SeatMotionSensor);
+    homebridge.registerAccessory("homebridge-esgi", "MentionSensorTop", MotionSensorTop);
     homebridge.registerAccessory("homebridge-esgi", "TemperatureSensor", TemperatureSensor);
     homebridge.registerAccessory("homebridge-esgi", "SeatMotor", SeatMotor);
 }
@@ -57,7 +63,7 @@ DummyESGI.prototype._setOn = function(on, callback) {
     callback();
 }
 
-function MentionSensor(log, config) {
+function SeatMotionSensor(log, config) {
     this.log = log;
     this.name = config.name;
     this._service = new Service.MotionSensor(this.name);
@@ -65,29 +71,28 @@ function MentionSensor(log, config) {
         .onGet(this._handleMotionDetectedGet.bind(this));
 }
 
-MentionSensor.prototype.getServices = function() {
+SeatMotionSensor.prototype.getServices = function() {
     return [this._service];
 }
 
-MentionSensor.prototype._handleMotionDetectedGet = function() {
+SeatMotionSensor.prototype._handleMotionDetectedGet = function() {
+    return seatDetection;
+}
+
+function MotionSensorTop(log, config) {
+    this.log = log;
+    this.name = config.name;
+    this._service = new Service.MotionSensor(this.name);
+    this._service.getCharacteristic(Characteristic.MotionDetected)
+        .onGet(this._handleMotionDetectedGet.bind(this));
+}
+
+MotionSensorTop.prototype.getServices = function() {
+    return [this._service];
+}
+
+MotionSensorTop.prototype._handleMotionDetectedGet = function() {
     const currentValue = 0;
-    return currentValue;
-}
-
-function MentionSensorTop(log, config) {
-    this.log = log;
-    this.name = config.name;
-    this._service = new Service.MotionSensor(this.name);
-    this._service.getCharacteristic(Characteristic.MotionDetected)
-        .onGet(this._handleMotionDetectedGet.bind(this));
-}
-
-MentionSensorTop.prototype.getServices = function() {
-    return [this._service];
-}
-
-MentionSensorTop.prototype._handleMotionDetectedGet = function() {
-    const currentValue = 1;
     return currentValue;
 }
 
@@ -105,8 +110,8 @@ TemperatureSensor.prototype.getServices = function() {
 }
 
 TemperatureSensor.prototype.handleCurrentTemperatureGet = function() {
-    print(sitTemp);
-    return sitTemp;
+    // console.log("seatTemp : ", seatTemp);
+    return Math.random() * (100 - 10) + 10;
 }
 
 
@@ -119,11 +124,7 @@ function SeatMotor(log, config) {
         .onGet(this.handleCurrentDoorStateGet.bind(this));
 
     this._service.getCharacteristic(Characteristic.TargetDoorState)
-        .onGet(this.handleTargetDoorStateGet.bind(this))
         .onSet(this.handleTargetDoorStateSet.bind(this));
-
-    this._service.getCharacteristic(Characteristic.ObstructionDetected)
-        .onGet(this.handleObstructionDetectedGet.bind(this));
 }
 
 SeatMotor.prototype.getServices = function() {
@@ -132,13 +133,7 @@ SeatMotor.prototype.getServices = function() {
 
 
 SeatMotor.prototype.handleCurrentDoorStateGet = function() {
-    const currentValue = Characteristic.CurrentDoorState.OPEN;
-    return currentValue;
-  }
-
-  SeatMotor.prototype.handleTargetDoorStateGet = function() {
-    const currentValue = Characteristic.TargetDoorState.OPEN;
-    return currentValue;
+    return seatCover;
   }
 
   SeatMotor.prototype.handleTargetDoorStateSet = function(value) {
@@ -146,17 +141,14 @@ SeatMotor.prototype.handleCurrentDoorStateGet = function() {
     var valueForMqtt = "";
     if (value == 0) {
         valueForMqtt = "open";
+        seatCover = 0;
     }else {
         valueForMqtt = "close";
+        seatCover = 1;
     }
-    mqttclient.publish("servo/test", valueForMqtt, { qos: 0, retain: false }, (error) => {
+    mqttclient.publish("peepoopee/servo/value", valueForMqtt, { qos: 0, retain: false }, (error) => {
         if (error) {
           console.error(error)
         }
       });
-  }
-
-  SeatMotor.prototype.handleObstructionDetectedGet = function() {
-    const currentValue = 0;
-    return currentValue;
   }
