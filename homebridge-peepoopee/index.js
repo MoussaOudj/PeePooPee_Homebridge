@@ -3,6 +3,7 @@ var Service, Characteristic, HomebridgeAPI;
 var seatTemp = "";
 var seatDetection = false;
 var seatCover = 0;
+var fanValue = 0;
 
 var opts = {
     rejectUnauthorized: false,
@@ -42,10 +43,10 @@ module.exports = function(homebridge) {
 function FanPeepo(log, config) {
     this.log = log;
     this.name = config.name;
-    this._service = new Service.Fan(this.name);
+    this._service = new Service.Fanv2(this.name);
 
 
-    this._service.getCharacteristic(Characteristic.On)
+    this._service.getCharacteristic(Characteristic.Active)
         .onGet(this._handleOnGet.bind(this))
         .onSet(this._handleOnSet.bind(this));
 }
@@ -55,13 +56,20 @@ FanPeepo.prototype.getServices = function() {
 }
 
 FanPeepo.prototype._handleOnGet = function() {
-    const currentValue = 0;
-    return currentValue;
+    return fanValue;
 }
 
 FanPeepo.prototype._handleOnSet = function(value) {
-    console.log("value : ", value);
-    mqttclient.publish("peepoopee/fan/value", value.toString(), { qos: 0, retain: false }, (error) => {
+    fanValue = value;
+    var valueForMqtt = "";
+    if (value == 0) {
+        valueForMqtt = "false";
+        fanValue = 0;
+    }else {
+        valueForMqtt = "true";
+        fanValue = 1;
+    }
+    mqttclient.publish("peepoopee/fan/value", valueForMqtt, { qos: 0, retain: false }, (error) => {
         if (error) {
           console.error(error)
         }
@@ -124,7 +132,6 @@ SeatMotor.prototype.handleCurrentDoorStateGet = function() {
   }
 
   SeatMotor.prototype.handleTargetDoorStateSet = function(value) {
-    console.log('Triggered SET TargetDoorState:', value);
     var valueForMqtt = "";
     if (value == 0) {
         valueForMqtt = "open";
