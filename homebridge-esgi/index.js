@@ -111,7 +111,7 @@ TemperatureSensor.prototype.getServices = function() {
 
 TemperatureSensor.prototype.handleCurrentTemperatureGet = function() {
     // console.log("seatTemp : ", seatTemp);
-    return Math.random() * (100 - 10) + 10;
+    return seatTemp;
 }
 
 
